@@ -6,11 +6,7 @@
     <link rel="icon" href="src/linux.png">
     <title>Mohammad Yousefi · Linux Terminal</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             background: radial-gradient(circle at 20% 30%, #0a0f1a, #03060c);
@@ -39,15 +35,8 @@
             gap: 0.6rem;
             border-bottom: 1px solid #2a2f3f;
         }
-        .term-buttons {
-            display: flex;
-            gap: 0.5rem;
-        }
-        .term-btn {
-            width: 13px;
-            height: 13px;
-            border-radius: 50%;
-        }
+        .term-buttons { display: flex; gap: 0.5rem; }
+        .term-btn { width: 13px; height: 13px; border-radius: 50%; }
         .close { background: #ff5f56; }
         .minimize { background: #ffbd2e; }
         .maximize { background: #27c93f; }
@@ -60,10 +49,7 @@
             opacity: 0.8;
             font-family: monospace;
         }
-        .term-title i {
-            font-style: normal;
-            color: #6abf69;
-        }
+        .term-title i { font-style: normal; color: #6abf69; }
 
         .terminal-body {
             background: #0a0c10;
@@ -83,17 +69,9 @@
             gap: 0.3rem;
             scroll-behavior: smooth;
         }
-        .terminal-output::-webkit-scrollbar {
-            width: 6px;
-        }
-        .terminal-output::-webkit-scrollbar-track {
-            background: #1a1e26;
-            border-radius: 8px;
-        }
-        .terminal-output::-webkit-scrollbar-thumb {
-            background: #3c4458;
-            border-radius: 8px;
-        }
+        .terminal-output::-webkit-scrollbar { width: 6px; }
+        .terminal-output::-webkit-scrollbar-track { background: #1a1e26; border-radius: 8px; }
+        .terminal-output::-webkit-scrollbar-thumb { background: #3c4458; border-radius: 8px; }
 
         .output-line {
             color: #c0e0b0;
@@ -115,12 +93,8 @@
             text-shadow: 0 0 4px #2eff7a;
             border-bottom: 1px solid #aaffaa;
         }
-        .prompt-line {
-            color: #b3ff9b;
-        }
-        .command-cmd {
-            color: #ecf5e1;
-        }
+        .prompt-line { color: #b3ff9b; }
+        .command-cmd { color: #ecf5e1; }
 
         .terminal-input-line {
             display: flex;
@@ -159,37 +133,20 @@
             font-style: italic;
         }
         @media (max-width: 640px) {
-            .terminal-body {
-                padding: 1rem;
-            }
-            .output-line {
-                font-size: 0.85rem;
-            }
-            .prompt-prefix {
-                font-size: 0.8rem;
-            }
+            .terminal-body { padding: 1rem; }
+            .output-line { font-size: 0.85rem; }
+            .prompt-prefix { font-size: 0.8rem; }
         }
 
-        .input-field:focus {
-            caret-color: #8eff8e;
-        }
-        .glow-effect {
-            animation: softGlow 1.2s infinite;
-        }
+        .input-field:focus { caret-color: #8eff8e; }
+        .glow-effect { animation: softGlow 1.2s infinite; }
         @keyframes softGlow {
             0% { text-shadow: 0 0 0px #8aff8a; }
             100% { text-shadow: 0 0 2px #b0ffa0; }
         }
-        .separator-dash {
-            color: #4d705a;
-        }
-        .ascii-hint {
-            color: #4c6e3c;
-            font-size: 0.7rem;
-        }
-        .input-field, .prompt-prefix {
-            font-size: 1.1rem;
-        }
+        .separator-dash { color: #4d705a; }
+        .ascii-hint { color: #4c6e3c; font-size: 0.7rem; }
+        .input-field, .prompt-prefix { font-size: 1.1rem; }
     </style>
 </head>
 <body>
@@ -264,6 +221,83 @@
             return c;
         });
     }
+
+    // ============================================================
+    // PROTECTED DOWNLOAD
+    // فایل هیچ آدرس عمومی ندارد. تنها راه گرفتنش این است که یک
+    // کلید معتبر به /api/download بفرستیم و Worker بایت‌ها را
+    // مستقیم از R2 خصوصی stream کند.
+    // ============================================================
+    const API_BASE = "";   // same origin: cppcore.ir/api/*
+
+    function addLiveLine() {
+        const d = document.createElement("div");
+        d.className = "output-line";
+        outputDiv.appendChild(d);
+        scrollToBottom();
+        return d;
+    }
+
+    function fmtBytes(n) {
+        if (n >= 1048576) return (n / 1048576).toFixed(1) + " MB";
+        if (n >= 1024) return (n / 1024).toFixed(0) + " KB";
+        return n + " B";
+    }
+
+    async function runDownload(code) {
+        const line = addLiveLine();
+        line.textContent = "  → checking key ...";
+
+        let res;
+        try {
+            res = await fetch(API_BASE + "/api/download", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ key: code })
+            });
+        } catch (e) {
+            line.textContent = "  ✗ network error - could not reach the server";
+            return;
+        }
+
+        if (!res.ok) {
+            let msg = "request rejected";
+            try { msg = (await res.text()) || msg; } catch (e) {}
+            line.textContent = "  ✗ " + msg;
+            return;
+        }
+
+        const total = parseInt(res.headers.get("Content-Length") || "0", 10);
+        const reader = res.body.getReader();
+        const chunks = [];
+        let got = 0;
+
+        while (true) {
+            const r = await reader.read();
+            if (r.done) break;
+            chunks.push(r.value);
+            got += r.value.length;
+            line.textContent = total
+                ? "  ↓ downloading ... " + fmtBytes(got) + " / " + fmtBytes(total) +
+                  "  (" + Math.floor(got * 100 / total) + "%)"
+                : "  ↓ downloading ... " + fmtBytes(got);
+            scrollToBottom();
+        }
+
+        const blob = new Blob(chunks, { type: "application/octet-stream" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "Dota2Chameleon.zip";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+
+        const left = res.headers.get("X-Remaining");
+        line.textContent = "  ✓ saved " + fmtBytes(got) +
+            (left && left !== "-1" ? "   ·   downloads left on this key: " + left : "");
+    }
     
     function clearTerminal() {
         outputDiv.innerHTML = '';
@@ -284,7 +318,6 @@
         addOutputLine(`  Languages :  ${SKILLS_TEXT}`, false);
         addOutputLine(`  Passion   :  Compilers, Embedded Linux, Assembly wizardry & native code`, false);
         addOutputLine("", false);
-        // GitHub link as clickable HTML (Linux style)
         const githubHtml = `  GitHub     :  <a href="${GITHUB_URL}" target="_blank" rel="noopener noreferrer">${GITHUB_URL}</a>  (repos with C/C++/C#/Asm)`;
         addOutputLine(githubHtml, true);
         addOutputLine("", false);
@@ -322,6 +355,7 @@
             addOutputLine("  │  asm       →  assembly (low-level) zone         │", false);
             addOutputLine("  │  csharp    →  C# & .NET interop / native bridge │", false);
             addOutputLine("  │  neofetch  →  simple dev fetch style            │", false);
+            addOutputLine("  │  download  →  get the Dota2 tool (needs key)    │", false);
             addOutputLine("  │  help      →  this message                      │", false);
             addOutputLine("  ╰─────────────────────────────────────────────────╯", false);
             return;
@@ -357,7 +391,7 @@
             return;
         }
         
-        // ---- WHOAMI (full name + persian) ----
+        // ---- WHOAMI ----
         if (lowerCmd === "whoami") {
             addOutputLine(`    ${FULL_NAME}`, false);
             addOutputLine(`    • "Code is poetry, assembly is raw power."`, false);
@@ -365,7 +399,7 @@
             return;
         }
         
-        // ---- WELCOME (reprint banner without duplicate huge ASCII maybe simple) ----
+        // ---- WELCOME ----
         if (lowerCmd === "welcome") {
             addOutputLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", false);
             addOutputLine(`    RE-WELCOME, ${FULL_NAME}`, false);
@@ -374,6 +408,19 @@
             addOutputLine(ghSimple, true);
             addOutputLine("    Status     :  Ready for low-level challenges", false);
             addOutputLine("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━", false);
+            return;
+        }
+
+        // ---- DOWNLOAD (protected file) ----
+        if (lowerCmd === "download" || lowerCmd.startsWith("download ")) {
+            const parts = cmd.trim().split(/\s+/);
+            const code = parts.slice(1).join("");
+            if (!code) {
+                addOutputLine("  usage:  download <key>", false);
+                addOutputLine("  A key is required. There is no public link to this file.", false);
+                return;
+            }
+            runDownload(code);
             return;
         }
         
@@ -397,7 +444,7 @@
             return;
         }
         
-        // ---- C / CPP specific flavor ----
+        // ---- C / CPP ----
         if (lowerCmd === "c" || lowerCmd === "cpp" || lowerCmd === "c++") {
             addOutputLine("    C / C++ ZONE", false);
             addOutputLine("    • 7+ years of combined systems programming", false);
@@ -407,7 +454,7 @@
             return;
         }
         
-        // ---- ASSEMBLY specific ----
+        // ---- ASSEMBLY ----
         if (lowerCmd === "asm" || lowerCmd === "assembly") {
             addOutputLine("    ASSEMBLY (x86_64, ARMv7, AArch64)", false);
             addOutputLine("    • Hand-optimized routines, shellcode analysis, SMM/BIOS experiments", false);
@@ -417,7 +464,7 @@
             return;
         }
         
-        // ---- CSHARP interesting context ----
+        // ---- CSHARP ----
         if (lowerCmd === "csharp" || lowerCmd === "c#") {
             addOutputLine("    C# & .NET Ecosystem", false);
             addOutputLine("    • Writing high-performance C# with Span<T>, unsafe, memory-mapped files", false);
@@ -426,64 +473,35 @@
             return;
         }
 
-
-    //     if (lowerCmd === "neofetch") {
-    //     addOutputLine("       .--.       mohammad@fedora-machine", false);
-    //     addOutputLine("      |o_o |      OS: Fedora Linux 40 (Workstation)", false);
-    //     addOutputLine("      |:_/ |      Shell: zsh / bash 5.2", false);
-    //     addOutputLine("     //   \\ \\   Languages: C, C++, C#, Assembly", false);
-    //     addOutputLine("    (|     | )    Experience: low-level dev & kernel", false);
-    //     addOutputLine("    /'\\_   _/`\\ Uptime: infinite (passion)", false);
-    //     addOutputLine("    \\___)=(___/  GitHub: " + GITHUB_URL.replace("https://github.com/", ""), false);
-    //     addOutputLine("                  Terminal: this awesome Linux-like site", false);
-    //     return;
-    // }
+        // ---- NEOFETCH ----
         if (lowerCmd === "neofetch") {
-        addOutputLine("       .--.       mohammad@fedora-machine", false);
-        addOutputLine("      |o_o |      OS: Fedora Linux 40 (Workstation)", false);
-        addOutputLine("      |:_/ |      Shell: zsh / bash 5.2", false);
-        addOutputLine("     //   \\ \\     Languages: C, C++, C#, Assembly", false);
-        addOutputLine("    (|     | )    Experience: low-level dev & kernel", false);
-        addOutputLine("    /'\\_   _/`\\   Uptime: infinite (passion)", false);
-        addOutputLine("    \\___)=(___/   GitHub: " + GITHUB_URL.replace("https://github.com/", ""), false);
-        addOutputLine("                  Terminal: this awesome Linux-like site", false);
-        return;
-    }
+            addOutputLine("       .--.       mohammad@fedora-machine", false);
+            addOutputLine("      |o_o |      OS: Fedora Linux 40 (Workstation)", false);
+            addOutputLine("      |:_/ |      Shell: zsh / bash 5.2", false);
+            addOutputLine("     //   \\ \\     Languages: C, C++, C#, Assembly", false);
+            addOutputLine("    (|     | )    Experience: low-level dev & kernel", false);
+            addOutputLine("    /'\\_   _/`\\   Uptime: infinite (passion)", false);
+            addOutputLine("    \\___)=(___/   GitHub: " + GITHUB_URL.replace("https://github.com/", ""), false);
+            addOutputLine("                  Terminal: this awesome Linux-like site", false);
+            return;
+        }
         
-        // // ---- NEOFETCH style (simple dev info) ----
-        // if (lowerCmd === "neofetch") {
-        //     addOutputLine("        .-.-.   mohammad@fedora-machine", false);
-        //     addOutputLine("       |'---'|  OS: Linux mindset (arch + fedora heritage)", false);
-        //     addOutputLine("       |_____|  Shell: zsh / bash 5.2", false);
-        //     addOutputLine("      .'     '.  Experience: low-level dev & kernel tinkering", false);
-        //     addOutputLine("     /  /   \\  \\ Languages: C, C++, C#, Assembly", false);
-        //     addOutputLine("    |  |     |  | Uptime: infinite (passion)", false);
-        //     addOutputLine("     \\  \\___/  /  GitHub: " + GITHUB_URL.replace("https://github.com/", ""), false);
-        //     addOutputLine("      '._   _.'   Terminal: this awesome Linux-like site", false);
-        //     addOutputLine("         '-'", false);
-        //     return;
-        // }
-        
-        // ---- Extra: ls / echo for fun (optional unix feel) ----
+        // ---- Unix feel ----
         if (lowerCmd === "ls") {
             addOutputLine("Desktop/   Documents/   Projects/   LowLevel_Asm/   C_Playground/   dotfiles/", false);
             addOutputLine("README.md  kernel_module.c  reverse_eng/  Makefile  .bashrc  github_repos.list", false);
             return;
         }
         if (lowerCmd.startsWith("echo ")) {
-            let echoMsg = cmd.substring(5);
-            addOutputLine(echoMsg, false);
+            addOutputLine(cmd.substring(5), false);
             return;
         }
-        
         if (lowerCmd === "pwd") {
             addOutputLine("/home/mohammad/portfolio/terminal_site", false);
             return;
         }
-        
         if (lowerCmd === "date") {
-            const now = new Date();
-            addOutputLine(now.toString(), false);
+            addOutputLine(new Date().toString(), false);
             return;
         }
         
@@ -521,7 +539,6 @@
         });
     }
     
-    // send command on Enter
     function onCommandSubmit(e) {
         if (e.key === "Enter") {
             e.preventDefault();
@@ -530,27 +547,22 @@
                 processCommand(rawCommand);
             }
             inputField.value = "";
-            // reset history navigation index
             historyIndex = commandHistory.length;
             currentInputBackup = "";
-            // focus remains
             inputField.focus();
         }
     }
     
-    // initialize terminal 
     function initTerminal() {
-        showWelcomeMessage();        // display bio + github + name + skills as required
+        showWelcomeMessage();
         inputField.addEventListener("keypress", onCommandSubmit);
         setupTerminalHistory();
         inputField.focus();
-        // optional: add a small initial pointer
         addOutputLine("", false);
         addOutputLine("   Terminal ready. Type 'help' to explore commands.", false);
         scrollToBottom();
     }
     
-    // start everything
     initTerminal();
 </script>
 </body>
